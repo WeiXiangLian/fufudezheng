@@ -6,11 +6,17 @@ import * as Q from './questions.js';
 import * as Sound from './sound.js';
 import * as Store from './storage.js';
 
+// ---- 常數 ----
+const ROUND_SIZE = 10;  // 每回合題數
+
 // ---- 本回合的狀態 ----
 let session = null;     // { answered, correct, roundStars, score, streak, bestStreak }
 let adaptive = null;    // 自適應難度控制器
 let current = null;     // 目前題目
 let locked = false;     // 是否已作答（避免重複點）
+
+// 各題型的弱點分數（跨回合持續，存在 localStorage）
+let weakness = Store.getWeakness();
 
 // ---- 取得畫面元素 ----
 const $ = (id) => document.getElementById(id);
@@ -19,6 +25,7 @@ const el = {
   startBtn: $('start-btn'), soundToggle: $('sound-toggle'), themeToggle: $('theme-toggle'),
   endBtn: $('end-btn'),
   statScore: $('stat-score'), statStreak: $('stat-streak'), statStars: $('stat-stars'),
+  progress: $('progress'),
   levelDots: $('level-dots'), question: $('question'), options: $('options'),
   feedback: $('feedback'), explain: $('explain'), nextBtn: $('next-btn'),
   resCorrect: $('res-correct'), resTotal: $('res-total'), resStars: $('res-stars'),
@@ -60,12 +67,16 @@ function startSession() {
 
 // ---- 出下一題 ----
 function nextQuestion() {
-  current = Q.generateQuestion(adaptive.level);
+  // 依弱點分數挑題型，再依目前難度出題
+  const category = Q.chooseCategory(weakness);
+  current = Q.generateQuestion(adaptive.level, category);
   locked = false;
 
   el.question.textContent = current.prompt;
+  el.progress.textContent = `第 ${session.answered + 1} / ${ROUND_SIZE} 題`;
   el.feedback.textContent = '';
   el.feedback.className = 'feedback';
+  el.explain.innerHTML = '';
   el.explain.classList.add('hidden');
   el.nextBtn.classList.add('hidden');
   renderLevelDots();
@@ -120,13 +131,25 @@ function onAnswer(value, btn) {
     session.streak = 0;
     el.feedback.textContent = `❌ 正確答案是 ${current.correct}`;
     el.feedback.className = 'feedback bad';
-    el.explain.textContent = current.explanation;
+    const ex = current.explanation;
+    el.explain.innerHTML =
+      `<div class="ex-principle">${ex.principle}</div><div class="ex-steps">${ex.steps}</div>`;
     el.explain.classList.remove('hidden');
     Sound.playWrong();
   }
 
+  // 更新該題型的弱點分數：答錯加重（之後更常出現）、答對減輕
+  const cat = current.category;
+  weakness[cat] = isCorrect
+    ? Math.max(0, (weakness[cat] || 0) - 1)
+    : Math.min(6, (weakness[cat] || 0) + 3);
+  Store.saveWeakness(weakness);
+
   Q.recordResult(adaptive, isCorrect);
   updateStats();
+
+  // 回合制：滿 ROUND_SIZE 題就改成「看結算」，否則「下一題」
+  el.nextBtn.textContent = session.answered >= ROUND_SIZE ? '看結算 →' : '下一題 →';
   el.nextBtn.classList.remove('hidden');
 }
 
@@ -155,7 +178,11 @@ function endSession() {
 function bindEvents() {
   el.startBtn.addEventListener('click', () => { Sound.playClick(); startSession(); });
   el.endBtn.addEventListener('click', () => { Sound.playClick(); endSession(); });
-  el.nextBtn.addEventListener('click', () => { Sound.playClick(); nextQuestion(); });
+  el.nextBtn.addEventListener('click', () => {
+    Sound.playClick();
+    if (session.answered >= ROUND_SIZE) endSession();
+    else nextQuestion();
+  });
   el.againBtn.addEventListener('click', () => { Sound.playClick(); startSession(); });
   el.homeBtn.addEventListener('click', () => { Sound.playClick(); refreshHome(); showScreen('home'); });
 

@@ -6,6 +6,7 @@ const KEY = {
   totalStars: 'pnz_totalStars',   // 累積總星星
   bestStreak: 'pnz_bestStreak',   // 歷史最佳連勝
   settings:   'pnz_settings',     // 設定：音效、深色模式
+  weakness:   'pnz_weakness',     // 各題型弱點分數（答錯會升、答對會降）
 };
 
 // 讀一個數字，讀不到就回傳預設值
@@ -52,4 +53,18 @@ export function getSettings() {
 
 export function saveSettings(settings) {
   try { localStorage.setItem(KEY.settings, JSON.stringify(settings)); } catch (e) {}
+}
+
+// 弱點分數：{ 題型: 分數 }。讀不到就回傳空物件。
+export function getWeakness() {
+  try {
+    const raw = localStorage.getItem(KEY.weakness);
+    return raw ? JSON.parse(raw) : {};
+  } catch (e) {
+    return {};
+  }
+}
+
+export function saveWeakness(obj) {
+  try { localStorage.setItem(KEY.weakness, JSON.stringify(obj)); } catch (e) {}
 }

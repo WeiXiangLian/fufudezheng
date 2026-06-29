@@ -159,10 +159,16 @@ body {
   border-left: 4px solid var(--primary);
   border-radius: 8px;
   padding: 14px 16px;
-  font-size: 16px;
   line-height: 1.6;
   color: var(--text);
   margin-bottom: 16px;
+}
+.ex-principle { font-weight: bold; font-size: 16px; margin-bottom: 6px; }
+.ex-steps {
+  font-size: 17px;
+  letter-spacing: .5px;
+  color: var(--primary);
+  font-variant-numeric: tabular-nums;
 }
 
 #next-btn { margin-top: auto; }
