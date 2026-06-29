@@ -1,0 +1,7 @@
+# 編輯器 / 系統雜項
+.DS_Store
+Thumbs.db
+*.log
+
+# Claude Code 本機設定（含絕對路徑，不需進版控）
+.claude/

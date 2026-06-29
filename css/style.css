@@ -1,0 +1,184 @@
+/* ===== style.css =====
+   主題色用 CSS 變數定義，深色模式只要切換 <html data-theme="dark"> 即可整組替換。 */
+
+:root {
+  --bg: #f1f5f9;
+  --card: #ffffff;
+  --primary: #4f46e5;
+  --primary-dark: #4338ca;
+  --text: #1e293b;
+  --muted: #64748b;
+  --good: #16a34a;
+  --good-bg: #dcfce7;
+  --bad: #dc2626;
+  --bad-bg: #fee2e2;
+  --border: #e2e8f0;
+  --shadow: rgba(15, 23, 42, .08);
+}
+
+html[data-theme="dark"] {
+  --bg: #0f172a;
+  --card: #1e293b;
+  --primary: #818cf8;
+  --primary-dark: #6366f1;
+  --text: #e2e8f0;
+  --muted: #94a3b8;
+  --good: #4ade80;
+  --good-bg: #14532d;
+  --bad: #f87171;
+  --bad-bg: #7f1d1d;
+  --border: #334155;
+  --shadow: rgba(0, 0, 0, .35);
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", "Microsoft JhengHei", system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  transition: background .25s, color .25s;
+}
+
+#app {
+  max-width: 460px;
+  margin: 0 auto;
+  min-height: 100vh;
+  padding: 20px 18px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 畫面切換 */
+.screen { display: none; flex: 1; flex-direction: column; }
+.screen.active { display: flex; }
+
+/* ---- 通用元件 ---- */
+.primary {
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: transform .1s, background .2s;
+  font-weight: bold;
+}
+.primary:active { transform: scale(.97); }
+.primary.big { width: 100%; padding: 18px; font-size: 19px; }
+
+.ghost {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 15px;
+  cursor: pointer;
+  padding: 10px;
+}
+.ghost.big { width: 100%; padding: 12px; font-size: 16px; }
+
+.hidden { display: none !important; }
+
+/* ---- 首頁 ---- */
+.logo {
+  text-align: center;
+  font-size: 36px;
+  margin: 40px 0 4px;
+  color: var(--primary);
+  letter-spacing: 2px;
+}
+.subtitle { text-align: center; color: var(--muted); margin: 0 0 28px; }
+
+.home-stats { display: flex; gap: 14px; margin-bottom: auto; }
+.stat-pill {
+  flex: 1;
+  background: var(--card);
+  border-radius: 16px;
+  padding: 18px;
+  text-align: center;
+  box-shadow: 0 1px 3px var(--shadow);
+}
+.stat-pill .big { font-size: 26px; font-weight: bold; }
+.stat-pill small { display: block; color: var(--muted); margin-top: 6px; font-size: 13px; }
+
+#start-btn { margin: 28px 0 16px; }
+
+.settings-row { display: flex; gap: 12px; justify-content: center; }
+.setting-btn {
+  flex: 1;
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 12px;
+  padding: 12px;
+  font-size: 15px;
+  cursor: pointer;
+}
+.setting-btn.off { opacity: .5; }
+
+/* ---- 練習頁 ---- */
+.quiz-top { display: flex; justify-content: space-between; align-items: center; }
+.stats { display: flex; gap: 12px; font-size: 13px; color: var(--muted); }
+.stats b { color: var(--text); font-size: 15px; }
+
+.level-row { text-align: center; color: var(--muted); font-size: 13px; margin: 10px 0; }
+.dots { letter-spacing: 3px; }
+
+.question-card {
+  background: var(--card);
+  border-radius: 18px;
+  padding: 36px 16px;
+  box-shadow: 0 1px 3px var(--shadow);
+  margin: 6px 0 18px;
+}
+.question { text-align: center; font-size: 40px; font-weight: bold; letter-spacing: 1px; }
+
+.options { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.option {
+  padding: 22px 10px;
+  font-size: 24px;
+  font-weight: bold;
+  border: 2px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+  border-radius: 14px;
+  cursor: pointer;
+  transition: transform .1s, border-color .15s, background .15s;
+}
+.option:active { transform: scale(.97); }
+.option:disabled { cursor: default; }
+.option.correct { background: var(--good-bg); border-color: var(--good); color: var(--good); }
+.option.wrong { background: var(--bad-bg); border-color: var(--bad); color: var(--bad); }
+
+.feedback { text-align: center; font-size: 20px; font-weight: bold; min-height: 30px; margin: 14px 0 6px; }
+.feedback.good { color: var(--good); }
+.feedback.bad { color: var(--bad); }
+
+.explain {
+  background: var(--card);
+  border-left: 4px solid var(--primary);
+  border-radius: 8px;
+  padding: 14px 16px;
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--text);
+  margin-bottom: 16px;
+}
+
+#next-btn { margin-top: auto; }
+
+/* ---- 結算頁 ---- */
+.result-title { text-align: center; margin: 40px 0 20px; }
+.result-card {
+  background: var(--card);
+  border-radius: 18px;
+  padding: 24px;
+  box-shadow: 0 1px 3px var(--shadow);
+  margin-bottom: auto;
+}
+.result-line { text-align: center; font-size: 18px; padding: 8px 0; }
+.result-line.big-star { font-size: 24px; font-weight: bold; }
+.result-line.muted { color: var(--muted); font-size: 15px; }
+.result-line b { color: var(--primary); }
+
+#again-btn { margin-bottom: 8px; }

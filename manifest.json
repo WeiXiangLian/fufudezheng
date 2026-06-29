@@ -1,0 +1,19 @@
+{
+  "name": "負負得正",
+  "short_name": "負負得正",
+  "description": "國中小學生練習正負數加減的闖關小遊戲",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f1f5f9",
+  "theme_color": "#4f46e5",
+  "lang": "zh-Hant",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

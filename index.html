@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#4f46e5" />
+  <title>負負得正</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="manifest" href="manifest.json" />
+</head>
+<body>
+  <div id="app">
+
+    <!-- ===== 首頁 ===== -->
+    <section id="home" class="screen active">
+      <h1 class="logo">負負得正</h1>
+      <p class="subtitle">正負數加減・闖關練習</p>
+
+      <div class="home-stats">
+        <div class="stat-pill"><span class="big">⭐ <b id="home-stars">0</b></span><small>累積星星</small></div>
+        <div class="stat-pill"><span class="big">🏆 <b id="home-best">0</b></span><small>最佳連勝</small></div>
+      </div>
+
+      <button id="start-btn" class="primary big">開始挑戰</button>
+
+      <div class="settings-row">
+        <button id="sound-toggle" class="setting-btn" aria-label="音效開關">🔊 音效</button>
+        <button id="theme-toggle" class="setting-btn" aria-label="深色模式開關">🌙 深色</button>
+      </div>
+    </section>
+
+    <!-- ===== 練習頁 ===== -->
+    <section id="quiz" class="screen">
+      <header class="quiz-top">
+        <button id="end-btn" class="ghost">結束</button>
+        <div class="stats">
+          <span>得分 <b id="stat-score">0</b></span>
+          <span>連勝 <b id="stat-streak">0</b>🔥</span>
+          <span>⭐<b id="stat-stars">0</b></span>
+        </div>
+      </header>
+
+      <div class="level-row">
+        難度 <span id="level-dots" class="dots"></span>
+      </div>
+
+      <div class="question-card">
+        <div id="question" class="question">—</div>
+      </div>
+
+      <div id="options" class="options"></div>
+
+      <div id="feedback" class="feedback"></div>
+      <div id="explain" class="explain hidden"></div>
+
+      <button id="next-btn" class="primary big hidden">下一題 →</button>
+    </section>
+
+    <!-- ===== 結算頁 ===== -->
+    <section id="result" class="screen">
+      <h2 class="result-title">本回合結算</h2>
+      <div class="result-card">
+        <div class="result-line">答對 <b id="res-correct">0</b> / <b id="res-total">0</b> 題</div>
+        <div class="result-line big-star">本回合獲得 ⭐<b id="res-stars">0</b></div>
+        <div class="result-line">最佳連勝 <b id="res-streak">0</b> 🔥</div>
+        <div class="result-line muted">累積星星 ⭐<b id="res-total-stars">0</b></div>
+      </div>
+      <button id="again-btn" class="primary big">再玩一次</button>
+      <button id="home-btn" class="ghost big">回首頁</button>
+    </section>
+
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
