@@ -1,13 +1,9 @@
 // ===== questions.js =====
-// 出題引擎：正負整數加減法選擇題。包含三套機制：
-//   1) 滾動式「難度」自適應（控制數字範圍大小）
-//   2) 「題型」分類與弱點加權（答錯的題型會更常出現）
-//   3) 專業的答錯講解
+// 出題引擎：正負整數加減法選擇題。包含：
+//   1) 依「題型 + 數字範圍」出題（難度曲線由關卡設定檔 levels.js 控制）
+//   2) 「題型」弱點加權選擇（弱點特訓關用：答錯多的題型更常出現）
+//   3) 三步心法講解
 // 純邏輯，不碰畫面，方便單獨測試。
-
-// 三個難度等級對應的數字範圍（運算元絕對值上限）
-const RANGES = { 1: 10, 2: 20, 3: 30 };
-export const MAX_LEVEL = 3;
 
 // 題型分類（依「運算 + 正負號型態」區分學生的不同弱點）
 export const CATEGORIES = ['add_pos', 'add_neg', 'add_mixed', 'sub_pos', 'sub_neg'];
@@ -29,29 +25,7 @@ function shuffle(arr) {
 // 數字格式化：負數加括號。 -7 -> "(-7)"， 5 -> "5"
 export function fmt(n) { return n < 0 ? `(${n})` : `${n}`; }
 
-// ---- 自適應「難度」控制器（連對 3 升級、連錯 2 降級）----
-export function createAdaptive(startLevel = 1) {
-  return { level: startLevel, recent: [] };
-}
-
-export function recordResult(adaptive, isCorrect) {
-  adaptive.recent.push(isCorrect);
-  if (adaptive.recent.length > 5) adaptive.recent.shift();
-  const r = adaptive.recent;
-  const last3AllRight = r.length >= 3 && r.slice(-3).every(x => x === true);
-  const last2AllWrong = r.length >= 2 && r.slice(-2).every(x => x === false);
-  if (last3AllRight && adaptive.level < MAX_LEVEL) {
-    adaptive.level++; adaptive.recent = [];
-    return { changed: true, direction: 'up' };
-  }
-  if (last2AllWrong && adaptive.level > 1) {
-    adaptive.level--; adaptive.recent = [];
-    return { changed: true, direction: 'down' };
-  }
-  return { changed: false, direction: null };
-}
-
-// ---- 弱點加權的題型選擇 ----
+// ---- 弱點加權的題型選擇（弱點特訓關用）----
 // weights：{ 題型: 弱點分數 }。每個題型基礎權重 1，再加上弱點分數。
 // 答錯的題型分數高 → 被抽中的機率高 → 反覆出現複習。
 export function chooseCategory(weights = {}) {
@@ -66,9 +40,8 @@ export function chooseCategory(weights = {}) {
 }
 
 // ---- 出題 ----
-// 依「難度 level」與「題型 category」產生一題
-export function generateQuestion(level, category) {
-  const max = RANGES[level] || RANGES[1];
+// 依「數字範圍 max」與「題型 category」產生一題
+export function generateQuestion(max, category) {
   const { a, b, op } = operandsFor(category, max);
   const correct = op === 'add' ? a + b : a - b;
   const sym = op === 'add' ? '+' : '−';
@@ -76,7 +49,7 @@ export function generateQuestion(level, category) {
   return {
     a, b, op, category, prompt, correct,
     options: buildOptions(a, b, op, correct),
-    explanation: explain(a, b, op, correct),
+    explanation: explain(a, b, op),
   };
 }
 
@@ -114,40 +87,64 @@ function buildOptions(a, b, op, correct) {
   return shuffle([correct, ...picks]);
 }
 
-// ---- 專業講解 ----
-// 回傳 { principle, steps }：原理一句 + 逐步計算一行。
-function explain(a, b, op, correct) {
-  const fa = fmt(a), fb = fmt(b);
-  const A = Math.abs(a), B = Math.abs(b);
+// ---- 講解 ----
+// 心法三步：① 先判斷結果正負 → ② 同性質（同號）數字直接相加 / 異性質（異號）數字抵銷。
+// 減法先轉成「加上相反數」，再套用同一套加法判斷。
+// 回傳 { principle, steps[] }：原理一句 + 逐步推理（多行）。
 
-  // 減法：一律轉成「加上相反數」
-  if (op === 'sub') {
-    const principle = b < 0
-      ? '減去一個負數，等於加上它的相反數，運算轉為加法。'
-      : '減法可轉為加法：減去一個數，等於加上它的相反數。';
-    const steps = `${fa} − ${fb} = ${fmt(a)} + ${fmt(-b)} = ${correct}`;
-    return { principle, steps };
+function explainAdd(x, y) {
+  const sum = x + y;
+  const X = Math.abs(x), Y = Math.abs(y);
+
+  // 有 0 的特例
+  if (x === 0 || y === 0) {
+    return { principle: '與 0 相加，結果就是另一個數。',
+             steps: [`${fmt(x)} + ${fmt(y)} = ${sum}`] };
   }
 
-  // 加法 — 同號（皆正）
-  if (a >= 0 && b >= 0) {
-    return { principle: '同號相加：兩數絕對值相加，和的符號不變。',
-             steps: `${a} + ${b} = ${correct}` };
+  const sameSign = (x < 0) === (y < 0);
+
+  // 同性質（同號）：數字直接相加
+  if (sameSign) {
+    const sign = x < 0 ? '負' : '正';
+    const mag = X + Y;
+    const step2 = sign === '正'
+      ? `② 同性質直接相加：${X} + ${Y} = ${mag}`
+      : `② 同性質直接相加：${X} + ${Y} = ${mag}，取負號 → ${sum}`;
+    return {
+      principle: '同性質（同號）：結果與兩數同號，數字直接相加。',
+      steps: [`① 兩數同為${sign}數 → 結果為${sign}`, step2],
+    };
   }
-  // 加法 — 同號（皆負）
-  if (a < 0 && b < 0) {
-    return { principle: '同號相加：兩數絕對值相加，結果取相同的負號。',
-             steps: `|${a}| + |${b}| = ${A} + ${B} = ${A + B}，取負號得 ${correct}` };
+
+  // 異性質（異號）且完全抵銷
+  if (sum === 0) {
+    return {
+      principle: '異性質（異號）且絕對值相等：完全抵銷。',
+      steps: [`① 兩數絕對值相等、性質相反 → 互相抵銷`, `② 結果為 0`],
+    };
   }
-  // 加法 — 異號且和為 0（互為相反數）
-  if (correct === 0) {
-    return { principle: '兩數互為相反數，其和為 0。',
-             steps: `${fa} + ${fb} = 0` };
-  }
-  // 加法 — 異號
-  const hi = Math.max(A, B), lo = Math.min(A, B);
+
+  // 異性質（異號）：數字抵銷（大減小），符號看絕對值較大者
+  const hi = Math.max(X, Y), lo = Math.min(X, Y);
+  const sign = sum < 0 ? '負' : '正';
+  const diff = hi - lo;
+  const step2 = sign === '正'
+    ? `② 異性質要抵銷：${hi} − ${lo} = ${diff}`
+    : `② 異性質要抵銷：${hi} − ${lo} = ${diff}，取負號 → ${sum}`;
   return {
-    principle: '異號相加：取兩數絕對值相減，差的符號與絕對值較大的數相同。',
-    steps: `較大絕對值 ${hi} − 較小絕對值 ${lo} = ${hi - lo}，${correct < 0 ? '取負號' : '取正號'}得 ${correct}`,
+    principle: '異性質（異號）：結果取絕對值較大者的符號，數字互相抵銷（大減小）。',
+    steps: [`① 絕對值 ${hi} > ${lo}，較大者為${sign}數 → 結果為${sign}`, step2],
+  };
+}
+
+function explain(a, b, op) {
+  if (op === 'add') return explainAdd(a, b);
+  // 減法：先轉成加上相反數，再套用加法判斷
+  const add = explainAdd(a, -b);
+  const conv = `${fmt(a)} − ${fmt(b)} = ${fmt(a)} + ${fmt(-b)}`;
+  return {
+    principle: '減去一個數 = 加上它的相反數；轉成加法後再判斷正負。',
+    steps: [conv, ...add.steps],
   };
 }

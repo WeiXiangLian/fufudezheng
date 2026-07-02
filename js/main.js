@@ -1,36 +1,46 @@
 // ===== main.js =====
-// 流程控制 + 畫面更新。把三個邏輯模組（出題、音效、存檔）串起來。
-// （Phase 1 先把畫面操作放這裡；之後畫面變複雜可再拆出 ui.js）
+// 流程控制 + 畫面更新：首頁 → 關卡地圖 → 關卡 → 結算。
+// 關卡規則（過關門檻、評級、學院幣、解鎖）都在 levels.js；這裡只負責串流程。
 
 import * as Q from './questions.js';
+import * as L from './levels.js';
 import * as Sound from './sound.js';
 import * as Store from './storage.js';
 
-// ---- 常數 ----
-const ROUND_SIZE = 10;  // 每回合題數
+// ---- 進行中關卡的狀態 ----
+let run = null;
+// run = {
+//   level:      關卡設定（L 裡的物件；弱點特訓為 L.WEAK_LEVEL）
+//   isWeak:     是否為弱點特訓關
+//   count:      本關題數
+//   answered:   已答題數
+//   correct:    答對題數
+//   streak:     連勝
+// }
+let current = null;   // 目前題目
+let locked = false;   // 是否已作答（避免重複點）
 
-// ---- 本回合的狀態 ----
-let session = null;     // { answered, correct, roundStars, score, streak, bestStreak }
-let adaptive = null;    // 自適應難度控制器
-let current = null;     // 目前題目
-let locked = false;     // 是否已作答（避免重複點）
-
-// 各題型的弱點分數（跨回合持續，存在 localStorage）
-let weakness = Store.getWeakness();
+let weakness = Store.getWeakness();   // 各題型弱點分數（持續存檔）
 
 // ---- 取得畫面元素 ----
 const $ = (id) => document.getElementById(id);
 const el = {
-  homeStars: $('home-stars'), homeBest: $('home-best'),
+  // 首頁
+  homeCoins: $('home-coins'), homeStars: $('home-stars'),
   startBtn: $('start-btn'), soundToggle: $('sound-toggle'), themeToggle: $('theme-toggle'),
-  endBtn: $('end-btn'),
-  statScore: $('stat-score'), statStreak: $('stat-streak'), statStars: $('stat-stars'),
-  progress: $('progress'),
-  levelDots: $('level-dots'), question: $('question'), options: $('options'),
+  // 地圖
+  mapHomeBtn: $('map-home-btn'), mapCoins: $('map-coins'), mapStars: $('map-stars'),
+  weakBanner: $('weak-banner'), chapters: $('chapters'),
+  // 關卡
+  quitBtn: $('quit-btn'), quizTitle: $('quiz-title'),
+  statStreak: $('stat-streak'), statCorrect: $('stat-correct'), progress: $('progress'),
+  question: $('question'), options: $('options'),
   feedback: $('feedback'), explain: $('explain'), nextBtn: $('next-btn'),
-  resCorrect: $('res-correct'), resTotal: $('res-total'), resStars: $('res-stars'),
-  resStreak: $('res-streak'), resTotalStars: $('res-total-stars'),
-  againBtn: $('again-btn'), homeBtn: $('home-btn'),
+  // 結算
+  resTitle: $('res-title'), resStars: $('res-stars'),
+  resCorrect: $('res-correct'), resTotal: $('res-total'), resCoins: $('res-coins'),
+  resReview: $('res-review'),
+  resNextBtn: $('res-next-btn'), resRetryBtn: $('res-retry-btn'), resMapBtn: $('res-map-btn'),
 };
 
 // ---- 設定（音效 / 深色模式）----
@@ -50,38 +60,135 @@ function showScreen(id) {
   $(id).classList.add('active');
 }
 
-// ---- 首頁數據 ----
-function refreshHome() {
-  el.homeStars.textContent = Store.getTotalStars();
-  el.homeBest.textContent = Store.getBestStreak();
+// ---- 共用：總評級星數 ----
+function totalStars(progress) {
+  return Object.values(progress).reduce((s, v) => s + v, 0);
 }
 
-// ---- 開始一回合 ----
-function startSession() {
-  session = { answered: 0, correct: 0, roundStars: 0, score: 0, streak: 0, bestStreak: 0 };
-  adaptive = Q.createAdaptive(1);
+// ---- 首頁 ----
+function refreshHome() {
+  el.homeCoins.textContent = Store.getCoins();
+  el.homeStars.textContent = totalStars(Store.getProgress());
+}
+
+// ---- 關卡地圖 ----
+function renderMap() {
+  const progress = Store.getProgress();
+  el.mapCoins.textContent = Store.getCoins();
+  el.mapStars.textContent = totalStars(progress);
+
+  // 弱點警報
+  const weakPending = Store.getWrongCount() >= L.WEAK_TRIGGER;
+  el.weakBanner.classList.toggle('hidden', !weakPending);
+
+  el.chapters.innerHTML = '';
+  L.CHAPTERS.forEach((ch, ci) => {
+    const unlocked = L.chapterUnlocked(ci, progress);
+    const card = document.createElement('div');
+    card.className = 'chapter-card' + (unlocked ? '' : ' locked');
+
+    const got = L.chapterStars(ch, progress);
+    let head = `
+      <div class="chapter-head">
+        <span class="chapter-name">第${ch.id}章 ${ch.name}</span>
+        <span class="chapter-stars">⭐ ${got} / ${ch.levels.length * 3}</span>
+      </div>
+      <div class="chapter-motto">心法：${ch.motto}</div>`;
+    if (!unlocked) {
+      const prev = L.CHAPTERS[ci - 1];
+      const prevGot = L.chapterStars(prev, progress);
+      head += `<div class="chapter-lockmsg">🔒 需要第${prev.id}章 ${L.CHAPTER_UNLOCK_STARS}⭐ 解鎖（目前 ${prevGot}⭐）</div>`;
+    }
+    card.innerHTML = head;
+
+    const nodes = document.createElement('div');
+    nodes.className = 'level-nodes';
+    ch.levels.forEach((lv, li) => {
+      const open = unlocked && L.levelUnlocked(ch, li, progress);
+      const stars = progress[lv.id] || 0;
+
+      const wrap = document.createElement('div');
+      wrap.className = 'node-wrap';
+
+      const btn = document.createElement('button');
+      btn.className = 'node'
+        + (lv.boss ? ' boss' : '')
+        + (stars > 0 ? ' done' : '')
+        + (open ? '' : ' locked');
+      btn.textContent = lv.boss ? '👑' : `${li + 1}`;
+      if (open) {
+        btn.addEventListener('click', () => {
+          Sound.playClick();
+          // 弱點警報中：強制先打弱點特訓
+          if (Store.getWrongCount() >= L.WEAK_TRIGGER) startWeakLevel();
+          else startLevel(lv);
+        });
+      } else {
+        btn.disabled = true;
+      }
+
+      const starsDiv = document.createElement('div');
+      starsDiv.className = 'node-stars';
+      starsDiv.textContent = stars > 0 ? '★'.repeat(stars) : '';
+
+      const nameDiv = document.createElement('div');
+      nameDiv.className = 'node-name';
+      nameDiv.textContent = lv.name;
+
+      wrap.append(btn, starsDiv, nameDiv);
+      nodes.appendChild(wrap);
+    });
+    card.appendChild(nodes);
+    el.chapters.appendChild(card);
+  });
+}
+
+// ---- 開始關卡 ----
+function startLevel(levelCfg) {
+  run = {
+    level: levelCfg,
+    isWeak: false,
+    count: L.questionCount(levelCfg),
+    answered: 0, correct: 0, streak: 0,
+  };
+  el.quizTitle.textContent = `${levelCfg.id} ${levelCfg.name}` + (levelCfg.boss ? ' 👑' : '');
   showScreen('quiz');
-  updateStats();
+  nextQuestion();
+}
+
+// 弱點特訓關：題型依弱點分數加權抽選
+function startWeakLevel() {
+  run = {
+    level: L.WEAK_LEVEL,
+    isWeak: true,
+    count: L.WEAK_LEVEL.count,
+    answered: 0, correct: 0, streak: 0,
+  };
+  el.quizTitle.textContent = `⚠️ ${L.WEAK_LEVEL.name}`;
+  showScreen('quiz');
   nextQuestion();
 }
 
 // ---- 出下一題 ----
 function nextQuestion() {
-  // 依弱點分數挑題型，再依目前難度出題
-  const category = Q.chooseCategory(weakness);
-  current = Q.generateQuestion(adaptive.level, category);
+  const lv = run.level;
+  // 弱點特訓：弱點加權抽題型；一般關卡：從關卡題型池隨機挑
+  const category = run.isWeak
+    ? Q.chooseCategory(weakness)
+    : lv.categories[Math.floor(Math.random() * lv.categories.length)];
+  current = Q.generateQuestion(lv.max, category);
   locked = false;
 
   el.question.textContent = current.prompt;
-  el.progress.textContent = `第 ${session.answered + 1} / ${ROUND_SIZE} 題`;
+  el.progress.textContent = `第 ${run.answered + 1} / ${run.count} 題`;
+  el.statCorrect.textContent = run.correct;
+  el.statStreak.textContent = run.streak;
   el.feedback.textContent = '';
   el.feedback.className = 'feedback';
   el.explain.innerHTML = '';
   el.explain.classList.add('hidden');
   el.nextBtn.classList.add('hidden');
-  renderLevelDots();
 
-  // 重建選項按鈕
   el.options.innerHTML = '';
   current.options.forEach((value) => {
     const btn = document.createElement('button');
@@ -92,99 +199,143 @@ function nextQuestion() {
   });
 }
 
-function renderLevelDots() {
-  let dots = '';
-  for (let i = 1; i <= Q.MAX_LEVEL; i++) dots += i <= adaptive.level ? '●' : '○';
-  el.levelDots.textContent = dots;
-}
-
 // ---- 作答 ----
 function onAnswer(value, btn) {
   if (locked) return;
   locked = true;
-  session.answered++;
+  run.answered++;
 
   const isCorrect = value === current.correct;
-  // 鎖住所有選項，並標出正解
   el.options.querySelectorAll('.option').forEach((b) => {
     b.disabled = true;
     if (Number(b.textContent) === current.correct) b.classList.add('correct');
   });
 
   if (isCorrect) {
-    session.correct++;
-    session.streak++;
-    if (session.streak > session.bestStreak) session.bestStreak = session.streak;
-    session.score += 10;
-
-    // 星星：每題 1 顆，每連勝到 5 的倍數多給 2 顆
-    let earned = 1;
-    const bonus = session.streak % 5 === 0;
-    if (bonus) earned += 2;
-    session.roundStars += earned;
-
-    el.feedback.textContent = bonus ? `✅ 連勝獎勵！ +⭐${earned}` : `✅ 答對了！ +⭐${earned}`;
+    run.correct++;
+    run.streak++;
+    Store.updateBestStreak(run.streak);
+    el.feedback.textContent = '✅ 答對了！';
     el.feedback.className = 'feedback good';
-    bonus ? Sound.playBonus() : Sound.playCorrect();
+    Sound.playCorrect();
   } else {
     btn.classList.add('wrong');
-    session.streak = 0;
+    run.streak = 0;
     el.feedback.textContent = `❌ 正確答案是 ${current.correct}`;
     el.feedback.className = 'feedback bad';
     const ex = current.explanation;
-    el.explain.innerHTML =
-      `<div class="ex-principle">${ex.principle}</div><div class="ex-steps">${ex.steps}</div>`;
+    const stepsHtml = ex.steps.map(s => `<div class="ex-step">${s}</div>`).join('');
+    el.explain.innerHTML = `<div class="ex-principle">${ex.principle}</div>${stepsHtml}`;
     el.explain.classList.remove('hidden');
     Sound.playWrong();
+
+    // 一般關卡才累積答錯計數（弱點特訓中的錯不重複計）
+    if (!run.isWeak) Store.setWrongCount(Store.getWrongCount() + 1);
   }
 
-  // 更新該題型的弱點分數：答錯加重（之後更常出現）、答對減輕
+  // 更新該題型弱點分數：答錯加重、答對減輕
   const cat = current.category;
   weakness[cat] = isCorrect
     ? Math.max(0, (weakness[cat] || 0) - 1)
     : Math.min(6, (weakness[cat] || 0) + 3);
   Store.saveWeakness(weakness);
 
-  Q.recordResult(adaptive, isCorrect);
-  updateStats();
-
-  // 回合制：滿 ROUND_SIZE 題就改成「看結算」，否則「下一題」
-  el.nextBtn.textContent = session.answered >= ROUND_SIZE ? '看結算 →' : '下一題 →';
+  el.statCorrect.textContent = run.correct;
+  el.statStreak.textContent = run.streak;
+  el.nextBtn.textContent = run.answered >= run.count ? '看結算 →' : '下一題 →';
   el.nextBtn.classList.remove('hidden');
 }
 
-function updateStats() {
-  el.statScore.textContent = session.score;
-  el.statStreak.textContent = session.streak;
-  el.statStars.textContent = session.roundStars;
+// ---- 結算 ----
+function endLevel() {
+  el.resCorrect.textContent = run.correct;
+  el.resTotal.textContent = run.count;
+  el.resReview.classList.add('hidden');
+  el.resNextBtn.classList.add('hidden');
+  el.resRetryBtn.classList.add('hidden');
+
+  if (run.isWeak) {
+    // 弱點特訓：打完即可，計數歸零、給固定獎勵
+    Store.setWrongCount(0);
+    Store.addCoins(L.WEAK_LEVEL.reward);
+    el.resTitle.textContent = '💪 特訓完成！';
+    el.resStars.textContent = '';
+    el.resCoins.textContent = L.WEAK_LEVEL.reward;
+    Sound.playBonus();
+    showScreen('result');
+    return;
+  }
+
+  const lv = run.level;
+  const stars = L.starsFor(lv, run.correct);
+  const prevStars = Store.getProgress()[lv.id] || 0;
+  const isReplay = prevStars > 0;
+  const coins = L.coinsFor(run.correct, stars, isReplay);
+
+  if (stars > 0) {
+    Store.saveLevelStars(lv.id, stars);
+    Store.addCoins(coins);
+    el.resTitle.textContent = lv.boss ? '👑 Boss 擊破！' : '🎉 過關！';
+    el.resStars.innerHTML =
+      '★'.repeat(stars) + `<span class="dim">${'★'.repeat(3 - stars)}</span>`;
+    // 有下一關就顯示「下一關」按鈕
+    const next = findNextLevel(lv.id);
+    if (next) el.resNextBtn.classList.remove('hidden');
+    Sound.playBonus();
+  } else {
+    el.resTitle.textContent = '再接再厲！';
+    el.resStars.innerHTML = `<span class="dim">★★★</span>`;
+    el.resRetryBtn.classList.remove('hidden');
+    // 失敗畫面：顯示本關題型的心法複習
+    const tips = [...new Set(lv.categories)]
+      .map(c => `・${L.PRINCIPLES[c]}`).join('<br>');
+    el.resReview.innerHTML =
+      `<div class="review-title">先複習心法，再挑戰一次：</div>${tips}`;
+    el.resReview.classList.remove('hidden');
+    Sound.playWrong();
+  }
+  el.resCoins.textContent = coins;
+  showScreen('result');
 }
 
-// ---- 結束回合 → 結算 ----
-function endSession() {
-  const totalStars = Store.addStars(session.roundStars);
-  const best = Store.updateBestStreak(session.bestStreak);
-
-  el.resCorrect.textContent = session.correct;
-  el.resTotal.textContent = session.answered;
-  el.resStars.textContent = session.roundStars;
-  el.resStreak.textContent = session.bestStreak;
-  el.resTotalStars.textContent = totalStars;
-  void best; // 已寫入儲存
-
-  showScreen('result');
+// 找同章或跨章的下一關（回傳關卡設定；沒有或未解鎖回傳 null）
+function findNextLevel(levelId) {
+  const progress = Store.getProgress();
+  const flat = [];
+  L.CHAPTERS.forEach((ch, ci) => ch.levels.forEach((lv, li) => flat.push({ lv, ch, ci, li })));
+  const idx = flat.findIndex(x => x.lv.id === levelId);
+  if (idx < 0 || idx + 1 >= flat.length) return null;
+  const next = flat[idx + 1];
+  const chapterOpen = L.chapterUnlocked(next.ci, progress);
+  const levelOpen = L.levelUnlocked(next.ch, next.li, progress);
+  return chapterOpen && levelOpen ? next.lv : null;
 }
 
 // ---- 綁定事件 ----
 function bindEvents() {
-  el.startBtn.addEventListener('click', () => { Sound.playClick(); startSession(); });
-  el.endBtn.addEventListener('click', () => { Sound.playClick(); endSession(); });
+  el.startBtn.addEventListener('click', () => { Sound.playClick(); renderMap(); showScreen('map'); });
+  el.mapHomeBtn.addEventListener('click', () => { Sound.playClick(); refreshHome(); showScreen('home'); });
+
+  el.quitBtn.addEventListener('click', () => { Sound.playClick(); renderMap(); showScreen('map'); }); // 中途離開作廢
   el.nextBtn.addEventListener('click', () => {
     Sound.playClick();
-    if (session.answered >= ROUND_SIZE) endSession();
+    if (run.answered >= run.count) endLevel();
     else nextQuestion();
   });
-  el.againBtn.addEventListener('click', () => { Sound.playClick(); startSession(); });
-  el.homeBtn.addEventListener('click', () => { Sound.playClick(); refreshHome(); showScreen('home'); });
+
+  el.resMapBtn.addEventListener('click', () => { Sound.playClick(); renderMap(); showScreen('map'); });
+  el.resRetryBtn.addEventListener('click', () => {
+    Sound.playClick();
+    if (Store.getWrongCount() >= L.WEAK_TRIGGER) startWeakLevel();
+    else startLevel(run.level);
+  });
+  el.resNextBtn.addEventListener('click', () => {
+    Sound.playClick();
+    const next = findNextLevel(run.level.id);
+    if (!next) { renderMap(); showScreen('map'); return; }
+    if (Store.getWrongCount() >= L.WEAK_TRIGGER) startWeakLevel();
+    else startLevel(next);
+  });
 
   el.soundToggle.addEventListener('click', () => {
     settings.sound = !settings.sound;

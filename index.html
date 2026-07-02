@@ -14,14 +14,14 @@
     <!-- ===== 首頁 ===== -->
     <section id="home" class="screen active">
       <h1 class="logo">負負得正</h1>
-      <p class="subtitle">正負數加減・闖關練習</p>
+      <p class="subtitle">正負數闖關大冒險</p>
 
       <div class="home-stats">
-        <div class="stat-pill"><span class="big">⭐ <b id="home-stars">0</b></span><small>累積星星</small></div>
-        <div class="stat-pill"><span class="big">🏆 <b id="home-best">0</b></span><small>最佳連勝</small></div>
+        <div class="stat-pill"><span class="big">🪙 <b id="home-coins">0</b></span><small>學院幣</small></div>
+        <div class="stat-pill"><span class="big">⭐ <b id="home-stars">0</b></span><small>評級星星</small></div>
       </div>
 
-      <button id="start-btn" class="primary big">開始挑戰</button>
+      <button id="start-btn" class="primary big">開始闖關</button>
 
       <div class="settings-row">
         <button id="sound-toggle" class="setting-btn" aria-label="音效開關">🔊 音效</button>
@@ -29,19 +29,35 @@
       </div>
     </section>
 
-    <!-- ===== 練習頁 ===== -->
+    <!-- ===== 關卡地圖 ===== -->
+    <section id="map" class="screen">
+      <header class="map-top">
+        <button id="map-home-btn" class="ghost">← 首頁</button>
+        <div class="stats">
+          <span>🪙<b id="map-coins">0</b></span>
+          <span>⭐<b id="map-stars">0</b></span>
+        </div>
+      </header>
+
+      <div id="weak-banner" class="weak-banner hidden">
+        ⚠️ 弱點警報！答錯累積達標，下一戰將進行「弱點特訓」
+      </div>
+
+      <div id="chapters"></div>
+    </section>
+
+    <!-- ===== 關卡進行中 ===== -->
     <section id="quiz" class="screen">
       <header class="quiz-top">
-        <button id="end-btn" class="ghost">結束</button>
+        <button id="quit-btn" class="ghost">← 離開</button>
+        <div id="quiz-title" class="quiz-title">1-1 正數相加</div>
         <div class="stats">
-          <span>得分 <b id="stat-score">0</b></span>
           <span>連勝 <b id="stat-streak">0</b>🔥</span>
-          <span>⭐<b id="stat-stars">0</b></span>
         </div>
       </header>
 
       <div class="level-row">
-        <span id="progress">第 1 / 10 題</span> ・ 難度 <span id="level-dots" class="dots"></span>
+        <span id="progress">第 1 / 8 題</span> ・ 答對 <b id="stat-correct">0</b>
       </div>
 
       <div class="question-card">
@@ -56,17 +72,20 @@
       <button id="next-btn" class="primary big hidden">下一題 →</button>
     </section>
 
-    <!-- ===== 結算頁 ===== -->
+    <!-- ===== 關卡結算 ===== -->
     <section id="result" class="screen">
-      <h2 class="result-title">本回合結算</h2>
+      <h2 id="res-title" class="result-title">過關！</h2>
+      <div id="res-stars" class="result-stars">★★★</div>
+
       <div class="result-card">
         <div class="result-line">答對 <b id="res-correct">0</b> / <b id="res-total">0</b> 題</div>
-        <div class="result-line big-star">本回合獲得 ⭐<b id="res-stars">0</b></div>
-        <div class="result-line">最佳連勝 <b id="res-streak">0</b> 🔥</div>
-        <div class="result-line muted">累積星星 ⭐<b id="res-total-stars">0</b></div>
+        <div class="result-line big-star">🪙 學院幣 +<b id="res-coins">0</b></div>
+        <div id="res-review" class="res-review hidden"></div>
       </div>
-      <button id="again-btn" class="primary big">再玩一次</button>
-      <button id="home-btn" class="ghost big">回首頁</button>
+
+      <button id="res-next-btn" class="primary big hidden">下一關 →</button>
+      <button id="res-retry-btn" class="primary big hidden">再挑戰</button>
+      <button id="res-map-btn" class="ghost big">回地圖</button>
     </section>
 
   </div>

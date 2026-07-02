@@ -3,13 +3,15 @@
 // 全部包在 try/catch 裡，萬一瀏覽器禁用儲存也不會讓程式崩潰。
 
 const KEY = {
-  totalStars: 'pnz_totalStars',   // 累積總星星
-  bestStreak: 'pnz_bestStreak',   // 歷史最佳連勝
-  settings:   'pnz_settings',     // 設定：音效、深色模式
-  weakness:   'pnz_weakness',     // 各題型弱點分數（答錯會升、答對會降）
+  coins:      'pnz_coins',       // 學院幣（抽卡貨幣）
+  progress:   'pnz_progress',    // 關卡進度：{ 關卡id: 最佳評級星數 1~3 }
+  wrongCount: 'pnz_wrongCount',  // 累積答錯題數（達標觸發弱點特訓）
+  weakness:   'pnz_weakness',    // 各題型弱點分數（答錯會升、答對會降）
+  bestStreak: 'pnz_bestStreak',  // 歷史最佳連勝
+  settings:   'pnz_settings',    // 設定：音效、深色模式
 };
 
-// 讀一個數字，讀不到就回傳預設值
+// ---- 底層小工具 ----
 function readNumber(key, fallback) {
   try {
     const v = localStorage.getItem(key);
@@ -23,48 +25,61 @@ function writeNumber(key, value) {
   try { localStorage.setItem(key, String(value)); } catch (e) {}
 }
 
-export function getTotalStars() { return readNumber(KEY.totalStars, 0); }
-export function addStars(n) {
-  const next = getTotalStars() + n;
-  writeNumber(KEY.totalStars, next);
+function readJSON(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch (e) {
+    return fallback;
+  }
+}
+
+function writeJSON(key, obj) {
+  try { localStorage.setItem(key, JSON.stringify(obj)); } catch (e) {}
+}
+
+// ---- 學院幣 ----
+export function getCoins() { return readNumber(KEY.coins, 0); }
+export function addCoins(n) {
+  const next = getCoins() + n;
+  writeNumber(KEY.coins, next);
   return next;
 }
 
+// ---- 關卡進度（只記最佳評級）----
+export function getProgress() { return readJSON(KEY.progress, {}); }
+export function saveLevelStars(levelId, stars) {
+  const p = getProgress();
+  if (stars > (p[levelId] || 0)) {
+    p[levelId] = stars;
+    writeJSON(KEY.progress, p);
+  }
+  return p;
+}
+
+// ---- 累積答錯計數（弱點特訓觸發器）----
+export function getWrongCount() { return readNumber(KEY.wrongCount, 0); }
+export function setWrongCount(n) { writeNumber(KEY.wrongCount, n); }
+
+// ---- 弱點分數：{ 題型: 分數 } ----
+export function getWeakness() { return readJSON(KEY.weakness, {}); }
+export function saveWeakness(obj) { writeJSON(KEY.weakness, obj); }
+
+// ---- 最佳連勝 ----
 export function getBestStreak() { return readNumber(KEY.bestStreak, 0); }
-// 只有比舊紀錄高才更新，回傳最新的最佳連勝
 export function updateBestStreak(streak) {
   const best = getBestStreak();
   if (streak > best) { writeNumber(KEY.bestStreak, streak); return streak; }
   return best;
 }
 
-// 設定：{ sound: true/false, dark: true/false }
+// ---- 設定：{ sound, dark } ----
 const DEFAULT_SETTINGS = { sound: true, dark: false };
 
 export function getSettings() {
-  try {
-    const raw = localStorage.getItem(KEY.settings);
-    if (!raw) return { ...DEFAULT_SETTINGS };
-    return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
-  } catch (e) {
-    return { ...DEFAULT_SETTINGS };
-  }
+  return { ...DEFAULT_SETTINGS, ...readJSON(KEY.settings, {}) };
 }
 
 export function saveSettings(settings) {
-  try { localStorage.setItem(KEY.settings, JSON.stringify(settings)); } catch (e) {}
-}
-
-// 弱點分數：{ 題型: 分數 }。讀不到就回傳空物件。
-export function getWeakness() {
-  try {
-    const raw = localStorage.getItem(KEY.weakness);
-    return raw ? JSON.parse(raw) : {};
-  } catch (e) {
-    return {};
-  }
-}
-
-export function saveWeakness(obj) {
-  try { localStorage.setItem(KEY.weakness, JSON.stringify(obj)); } catch (e) {}
+  writeJSON(KEY.settings, settings);
 }

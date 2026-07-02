@@ -14,6 +14,8 @@
   --bad-bg: #fee2e2;
   --border: #e2e8f0;
   --shadow: rgba(15, 23, 42, .08);
+  --gold: #f59e0b;
+  --lock: #cbd5e1;
 }
 
 html[data-theme="dark"] {
@@ -29,6 +31,8 @@ html[data-theme="dark"] {
   --bad-bg: #7f1d1d;
   --border: #334155;
   --shadow: rgba(0, 0, 0, .35);
+  --gold: #fbbf24;
+  --lock: #475569;
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -79,6 +83,9 @@ body {
 
 .hidden { display: none !important; }
 
+.stats { display: flex; gap: 12px; font-size: 13px; color: var(--muted); }
+.stats b { color: var(--text); font-size: 15px; }
+
 /* ---- 首頁 ---- */
 .logo {
   text-align: center;
@@ -116,13 +123,72 @@ body {
 }
 .setting-btn.off { opacity: .5; }
 
-/* ---- 練習頁 ---- */
+/* ---- 關卡地圖 ---- */
+.map-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+
+.weak-banner {
+  background: var(--bad-bg);
+  color: var(--bad);
+  border: 1px solid var(--bad);
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 14px;
+  font-weight: bold;
+  margin-bottom: 12px;
+  animation: pulse 1.6s infinite;
+}
+@keyframes pulse { 50% { opacity: .65; } }
+
+.chapter-card {
+  background: var(--card);
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 14px;
+  box-shadow: 0 1px 3px var(--shadow);
+}
+.chapter-card.locked { opacity: .55; }
+.chapter-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
+.chapter-name { font-size: 17px; font-weight: bold; }
+.chapter-stars { font-size: 13px; color: var(--muted); }
+.chapter-motto { font-size: 13px; color: var(--muted); margin-bottom: 12px; }
+.chapter-lockmsg { font-size: 13px; color: var(--bad); margin-bottom: 4px; }
+
+.level-nodes { display: flex; justify-content: space-between; gap: 6px; }
+.node-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; }
+
+.node {
+  width: 54px; height: 54px;
+  border-radius: 50%;
+  border: 3px solid var(--primary);
+  background: var(--card);
+  color: var(--primary);
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: transform .1s;
+  display: flex; align-items: center; justify-content: center;
+}
+.node:active { transform: scale(.94); }
+.node.done { background: var(--primary); color: #fff; }
+.node.locked {
+  border-color: var(--lock);
+  color: var(--lock);
+  cursor: not-allowed;
+  background: transparent;
+}
+.node.boss { border-radius: 16px; font-size: 20px; border-color: var(--gold); }
+.node.boss.done { background: var(--gold); border-color: var(--gold); color: #fff; }
+.node.boss.locked { border-color: var(--lock); background: transparent; color: var(--lock); }
+
+.node-stars { font-size: 11px; color: var(--gold); letter-spacing: 1px; min-height: 14px; }
+.node-name { font-size: 10px; color: var(--muted); text-align: center; }
+
+/* ---- 關卡進行中 ---- */
 .quiz-top { display: flex; justify-content: space-between; align-items: center; }
-.stats { display: flex; gap: 12px; font-size: 13px; color: var(--muted); }
-.stats b { color: var(--text); font-size: 15px; }
+.quiz-title { font-size: 14px; font-weight: bold; color: var(--muted); }
 
 .level-row { text-align: center; color: var(--muted); font-size: 13px; margin: 10px 0; }
-.dots { letter-spacing: 3px; }
+.level-row b { color: var(--text); }
 
 .question-card {
   background: var(--card);
@@ -163,18 +229,29 @@ body {
   color: var(--text);
   margin-bottom: 16px;
 }
-.ex-principle { font-weight: bold; font-size: 16px; margin-bottom: 6px; }
-.ex-steps {
-  font-size: 17px;
-  letter-spacing: .5px;
+.ex-principle { font-weight: bold; font-size: 16px; margin-bottom: 8px; }
+.ex-step {
+  font-size: 16px;
+  letter-spacing: .3px;
   color: var(--primary);
   font-variant-numeric: tabular-nums;
+  padding: 2px 0;
 }
 
 #next-btn { margin-top: auto; }
 
-/* ---- 結算頁 ---- */
-.result-title { text-align: center; margin: 40px 0 20px; }
+/* ---- 關卡結算 ---- */
+.result-title { text-align: center; margin: 36px 0 8px; font-size: 26px; }
+.result-stars {
+  text-align: center;
+  font-size: 44px;
+  color: var(--gold);
+  letter-spacing: 8px;
+  margin-bottom: 16px;
+  min-height: 56px;
+}
+.result-stars .dim { color: var(--lock); }
+
 .result-card {
   background: var(--card);
   border-radius: 18px;
@@ -183,8 +260,16 @@ body {
   margin-bottom: auto;
 }
 .result-line { text-align: center; font-size: 18px; padding: 8px 0; }
-.result-line.big-star { font-size: 24px; font-weight: bold; }
-.result-line.muted { color: var(--muted); font-size: 15px; }
+.result-line.big-star { font-size: 22px; font-weight: bold; }
 .result-line b { color: var(--primary); }
 
-#again-btn { margin-bottom: 8px; }
+.res-review {
+  margin-top: 12px;
+  border-top: 1px dashed var(--border);
+  padding-top: 12px;
+  font-size: 15px;
+  line-height: 1.7;
+}
+.res-review .review-title { font-weight: bold; color: var(--bad); margin-bottom: 6px; }
+
+#res-next-btn, #res-retry-btn { margin-bottom: 8px; }
