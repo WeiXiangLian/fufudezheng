@@ -6,6 +6,8 @@ const KEY = {
   coins:      'pnz_coins',       // 學院幣（抽卡貨幣）
   progress:   'pnz_progress',    // 關卡進度：{ 關卡id: 最佳評級星數 1~3 }
   wrongCount: 'pnz_wrongCount',  // 累積答錯題數（達標觸發弱點特訓）
+  cards:      'pnz_cards',       // 卡片收藏：{ 卡片id: 擁有張數 }
+  pity:       'pnz_pity',        // 保底計數：累積未出 SSR 的抽數
   weakness:   'pnz_weakness',    // 各題型弱點分數（答錯會升、答對會降）
   bestStreak: 'pnz_bestStreak',  // 歷史最佳連勝
   settings:   'pnz_settings',    // 設定：音效、深色模式
@@ -45,6 +47,27 @@ export function addCoins(n) {
   writeNumber(KEY.coins, next);
   return next;
 }
+// 扣款：餘額足夠回傳 true 並扣除，不夠回傳 false
+export function spendCoins(n) {
+  const now = getCoins();
+  if (now < n) return false;
+  writeNumber(KEY.coins, now - n);
+  return true;
+}
+
+// ---- 卡片收藏 ----
+export function getCards() { return readJSON(KEY.cards, {}); }
+// 加一張卡，回傳該卡最新張數
+export function addCard(id) {
+  const c = getCards();
+  c[id] = (c[id] || 0) + 1;
+  writeJSON(KEY.cards, c);
+  return c[id];
+}
+
+// ---- 保底計數 ----
+export function getPity() { return readNumber(KEY.pity, 0); }
+export function setPity(n) { writeNumber(KEY.pity, n); }
 
 // ---- 關卡進度（只記最佳評級）----
 export function getProgress() { return readJSON(KEY.progress, {}); }

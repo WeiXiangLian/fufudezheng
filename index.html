@@ -23,11 +23,49 @@
 
       <button id="start-btn" class="primary big">開始闖關</button>
 
+      <div class="hub-row">
+        <button id="gacha-btn" class="hub-btn">🎴 偉人召喚</button>
+        <button id="dex-btn" class="hub-btn">📖 圖鑑 <small id="dex-count">0/30</small></button>
+      </div>
+
       <div class="settings-row">
         <button id="sound-toggle" class="setting-btn" aria-label="音效開關">🔊 音效</button>
         <button id="theme-toggle" class="setting-btn" aria-label="深色模式開關">🌙 深色</button>
       </div>
     </section>
+
+    <!-- ===== 抽卡（偉人召喚） ===== -->
+    <section id="gacha" class="screen">
+      <header class="map-top">
+        <button id="gacha-back-btn" class="ghost">← 首頁</button>
+        <div class="stats"><span>🪙<b id="gacha-coins">0</b></span></div>
+      </header>
+
+      <h2 class="gacha-title">🎴 偉人召喚</h2>
+      <p class="gacha-sub">召喚歷史上的數學家加入你的圖鑑！</p>
+      <p class="gacha-pity">距離保底傳說（SSR）還有 <b id="pity-left">100</b> 抽</p>
+
+      <div id="gacha-results" class="gacha-results"></div>
+
+      <div class="gacha-actions">
+        <button id="draw1-btn" class="primary big">召喚 1 次（🪙30）</button>
+        <button id="draw10-btn" class="primary big alt">召喚 10 次（🪙270）</button>
+      </div>
+    </section>
+
+    <!-- ===== 圖鑑 ===== -->
+    <section id="dex" class="screen">
+      <header class="map-top">
+        <button id="dex-back-btn" class="ghost">← 首頁</button>
+        <div class="stats"><span>收集 <b id="dex-progress">0/30</b></span></div>
+      </header>
+      <div id="dex-list"></div>
+    </section>
+
+    <!-- ===== 卡片詳情彈窗 ===== -->
+    <div id="card-modal" class="modal hidden">
+      <div class="modal-body" id="card-modal-body"></div>
+    </div>
 
     <!-- ===== 關卡地圖 ===== -->
     <section id="map" class="screen">

@@ -4,6 +4,7 @@
 
 import * as Q from './questions.js';
 import * as L from './levels.js';
+import * as C from './cards.js';
 import * as Sound from './sound.js';
 import * as Store from './storage.js';
 
@@ -28,6 +29,13 @@ const el = {
   // 首頁
   homeCoins: $('home-coins'), homeStars: $('home-stars'),
   startBtn: $('start-btn'), soundToggle: $('sound-toggle'), themeToggle: $('theme-toggle'),
+  gachaBtn: $('gacha-btn'), dexBtn: $('dex-btn'), dexCount: $('dex-count'),
+  // 抽卡
+  gachaBackBtn: $('gacha-back-btn'), gachaCoins: $('gacha-coins'), pityLeft: $('pity-left'),
+  gachaResults: $('gacha-results'), draw1Btn: $('draw1-btn'), draw10Btn: $('draw10-btn'),
+  // 圖鑑
+  dexBackBtn: $('dex-back-btn'), dexProgress: $('dex-progress'), dexList: $('dex-list'),
+  cardModal: $('card-modal'), cardModalBody: $('card-modal-body'),
   // 地圖
   mapHomeBtn: $('map-home-btn'), mapCoins: $('map-coins'), mapStars: $('map-stars'),
   weakBanner: $('weak-banner'), chapters: $('chapters'),
@@ -69,6 +77,108 @@ function totalStars(progress) {
 function refreshHome() {
   el.homeCoins.textContent = Store.getCoins();
   el.homeStars.textContent = totalStars(Store.getProgress());
+  const owned = Object.keys(Store.getCards()).length;
+  el.dexCount.textContent = `${owned}/${C.CARDS.length}`;
+}
+
+// ---- 卡片渲染（抽卡結果與圖鑑共用）----
+// owned=false 時顯示未擁有的剪影
+function cardHTML(card, count, { unowned = false } = {}) {
+  const gold = count >= C.GOLD_AT;
+  const cls = `card-item rar-${card.rarity}`
+    + (gold ? ' gold' : '')
+    + (unowned ? ' unowned' : '');
+  return `
+    <div class="${cls}" data-card="${card.id}">
+      <div class="card-rar">${card.rarity}</div>
+      ${count > 1 ? `<div class="card-count">×${count}</div>` : ''}
+      <div class="card-symbol">${unowned ? '❓' : card.symbol}</div>
+      <div class="card-name">${unowned ? '？？？' : card.name}</div>
+      <div class="card-title">${unowned ? '尚未召喚' : card.title}</div>
+      ${gold ? '<div class="card-goldstar">✨金卡</div>' : ''}
+    </div>`;
+}
+
+// ---- 抽卡頁 ----
+function refreshGacha() {
+  el.gachaCoins.textContent = Store.getCoins();
+  el.pityLeft.textContent = C.PITY_LIMIT - Store.getPity();
+  el.draw1Btn.disabled = Store.getCoins() < C.SINGLE_COST;
+  el.draw10Btn.disabled = Store.getCoins() < C.TEN_COST;
+}
+
+function doDraw(times, cost) {
+  if (!Store.spendCoins(cost)) return;
+  let pity = Store.getPity();
+  const results = [];
+  for (let i = 0; i < times; i++) {
+    const r = C.drawOne(pity);
+    pity = r.newPity;
+    const count = Store.addCard(r.card.id);
+    results.push({ card: r.card, count, pityTriggered: r.pityTriggered });
+  }
+  Store.setPity(pity);
+
+  // 逐張翻出（動畫延遲逐張排開）
+  el.gachaResults.innerHTML = results.map((r, i) => {
+    const html = cardHTML(r.card, r.count);
+    return html.replace('class="card-item', `style="animation-delay:${i * 0.12}s" class="card-item`);
+  }).join('');
+
+  const best = results.some(r => r.card.rarity === 'SSR') ? 'SSR'
+    : results.some(r => r.card.rarity === 'SR') ? 'SR' : null;
+  if (best === 'SSR') Sound.playBonus();
+  else if (best === 'SR') Sound.playCorrect();
+  else Sound.playClick();
+
+  bindCardTaps(el.gachaResults);
+  refreshGacha();
+}
+
+// ---- 圖鑑 ----
+const RARITY_ORDER = ['SSR', 'SR', 'R', 'N'];
+
+function renderDex() {
+  const cards = Store.getCards();
+  const ownedCount = Object.keys(cards).length;
+  el.dexProgress.textContent = `${ownedCount}/${C.CARDS.length}`;
+
+  el.dexList.innerHTML = RARITY_ORDER.map(rar => {
+    const pool = C.cardsOf(rar);
+    const grid = pool.map(card => {
+      const count = cards[card.id] || 0;
+      return cardHTML(card, count, { unowned: count === 0 });
+    }).join('');
+    return `
+      <div class="dex-section-title">${C.RARITIES[rar].label}・${C.RARITIES[rar].name}
+        （${pool.filter(c => cards[c.id]).length}/${pool.length}）</div>
+      <div class="dex-grid">${grid}</div>`;
+  }).join('');
+
+  bindCardTaps(el.dexList);
+}
+
+// 點卡片開詳情彈窗（未擁有的不開）
+function bindCardTaps(root) {
+  root.querySelectorAll('.card-item:not(.unowned)').forEach(elCard => {
+    elCard.addEventListener('click', () => {
+      const card = C.cardById(elCard.dataset.card);
+      const count = Store.getCards()[card.id] || 0;
+      const gold = count >= C.GOLD_AT;
+      el.cardModalBody.innerHTML = `
+        <div class="modal-symbol">${card.symbol}${gold ? '✨' : ''}</div>
+        <div class="modal-rar rar-${card.rarity}">${card.rarity}・${C.RARITIES[card.rarity].name}${gold ? '（金卡）' : ''}</div>
+        <div class="modal-name">${card.name}</div>
+        <div class="modal-title">${card.title}</div>
+        <div class="modal-era">${card.era}</div>
+        <div class="modal-fact">${card.fact}</div>
+        <div class="modal-count">擁有 ×${count}${gold ? '' : `・再 ${C.GOLD_AT - count} 張升級金卡`}</div>
+        <button class="primary big" id="modal-close-btn">關閉</button>`;
+      el.cardModal.classList.remove('hidden');
+      $('modal-close-btn').addEventListener('click', () => el.cardModal.classList.add('hidden'));
+      Sound.playClick();
+    });
+  });
 }
 
 // ---- 關卡地圖 ----
@@ -315,6 +425,23 @@ function findNextLevel(levelId) {
 function bindEvents() {
   el.startBtn.addEventListener('click', () => { Sound.playClick(); renderMap(); showScreen('map'); });
   el.mapHomeBtn.addEventListener('click', () => { Sound.playClick(); refreshHome(); showScreen('home'); });
+
+  // 抽卡與圖鑑
+  el.gachaBtn.addEventListener('click', () => {
+    Sound.playClick();
+    el.gachaResults.innerHTML = '';
+    refreshGacha();
+    showScreen('gacha');
+  });
+  el.gachaBackBtn.addEventListener('click', () => { Sound.playClick(); refreshHome(); showScreen('home'); });
+  el.draw1Btn.addEventListener('click', () => doDraw(1, C.SINGLE_COST));
+  el.draw10Btn.addEventListener('click', () => doDraw(10, C.TEN_COST));
+
+  el.dexBtn.addEventListener('click', () => { Sound.playClick(); renderDex(); showScreen('dex'); });
+  el.dexBackBtn.addEventListener('click', () => { Sound.playClick(); refreshHome(); showScreen('home'); });
+  el.cardModal.addEventListener('click', (e) => {
+    if (e.target === el.cardModal) el.cardModal.classList.add('hidden');
+  });
 
   el.quitBtn.addEventListener('click', () => { Sound.playClick(); renderMap(); showScreen('map'); }); // 中途離開作廢
   el.nextBtn.addEventListener('click', () => {
